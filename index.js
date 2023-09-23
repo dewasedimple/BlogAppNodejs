@@ -1,92 +1,81 @@
 const express = require('express');
-const {connectDB} =require('./database');
+const { connectDB } = require('./database');
 const User = require('./usermodel');
 const Post = require('./postmodel');
 const Comment = require('./comment');
-// const bcrypt = require('bcrypt');
-
-
-
-  const mongoose = require('mongoose');
-
- const bodyparser=require('body-parser');
+const mongoose = require('mongoose');
+const bodyparser = require('body-parser');
+const passport = require('passport');
+const session = require('express-session');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const cors = require('cors');
 
 const app = express();
+const PORT = process.env.PORT || 4000;
 
-const PORT = process.env.PORT ||4000
- const cors = require('cors');
- app.use(cors());
- app.use(bodyparser.json())
- 
-connectDB()
+app.use(cors());
+app.use(bodyparser.json());
+
+connectDB();
+
+// Passport configuration
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: '522578773347-0n9hj8qpv2qig1mf7r5bb3tn5gu6n8ao.apps.googleusercontent.com', // Replace with your actual Google Client ID
+      clientSecret: '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', // Replace with your actual Google Client Secret
+      callbackURL: 'https://blog-frontend-b511.onrender.com/auth/google/callback', // Adjust the URL to match your setup
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        // Check if a user with this Google ID already exists in your system
+        const user = await User.findOne({ googleId: profile.id });
+
+        if (user) {
+          return done(null, user); // User already exists, return the user
+        } else {
+          // User does not exist, create a new user
+          const newUser = new User({
+            googleId: profile.id,
+            displayName: profile.displayName,
+            // Add other user data fields as needed
+          });
+
+          await newUser.save();
+
+          return done(null, newUser); // Return the new user
+        }
+      } catch (error) {
+        return done(error, null);
+      }
+    }
+  )
+);
+
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser((id, done) => {
+  User.findById(id, (err, user) => {
+    done(err, user);
+  });
+});
+
+app.use(
+  session({
+    secret: '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',
+    resave: true,
+    saveUninitialized: true,
+  })
+);
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 
 
-// mongoose.connect("mongodb://127.0.0.1:27017/BlogApp",{
-//   useNewUrlParser: true,
-//   useUnifiedTopology: true,
-// });
-// const PostModel = mongoose.model("blogdetails", {
-//   title: String,
-//   description: String,
-// });
-// const userSchema = new mongoose.Schema({
-//   username: String,
-//   password: String,
-//    lastLoginTime: String, 
-// });
 
-// const UserModel = mongoose.model('user_and_password', userSchema);
-
-// app.post("/api/posts", async (req, res) => {
-//   try {
-//     const { title, description } = req.body;
-
-   
-//     const newPost = new PostModel({ title, description });
-//     await newPost.save();
-
-//     res.status(201).json({ message: "Post saved successfully" });
-//   } catch (error) {
-//     console.error("Error:", error);
-//     res.status(500).json({ error: "Failed to save post" });
-//   }
-// });
-
-
-
-// app.post('/login/v1', async (req, res) => {
-//   try {
-//     const { username, password } = req.body;
-//     const hashedPassword = await bcrypt.hash(password, 10); 
-//     const user = new UserModel({ username, password: hashedPassword });
-//     console.log("Received login request with username:", username, "and password:", password);
-//     console.log(user);
-
-
-//     if (user) {
-      
-//        user.lastLoginTime = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
-//        await user.save();
-
-//       res.json(user);
-//     } else {
-//       res.status(401).json({ error: 'Incorrect username or password' });
-//     }
-//   } catch (error) {
-//     console.error("Error during login:", error);
-//     res.status(500).json({ error: 'Could not fetch user' });
-//   }
-// });
-// app.get("/api/blogposts", async (req, res) => {
-//   try {
-//     const posts = await PostModel.find(); // Retrieve all posts from the collection
-//     res.json(posts);
-//   } catch (error) {
-//     console.error("Error:", error);
-//     res.status(500).json({ error: "Failed to fetch posts" });
-//   }
-// });
 app.post('/users/register',async (req,res)=>{
   try{
     const {username,email,password}=req.body;
@@ -189,9 +178,32 @@ app.post('/api/posts/:postId/comments', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+// Define the Google OAuth routes
+app.get(
+  '/auth/google',
+  passport.authenticate('google', { scope: ['profile'] })
+);
+
+app.get(
+  '/auth/google/callback',
+  passport.authenticate('google', {
+    successRedirect: '/success', // Replace with your desired success route
+    failureRedirect: '/failure', // Replace with your desired failure route
+  })
+);
+
+// Ensure user is authenticated before allowing access to your protected routes
+const ensureAuthenticated = (req, res, next) => {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.redirect('/auth/google');
+  // Example protected route
+app.get('/protected', ensureAuthenticated, (req, res) => {
+  res.send('This is a protected route.');
+});
+}
 
 
 
-
-
-  app.listen(PORT,() => console.log(`Server running on port ${PORT}`))
+  app.listen(PORT,() => console.log(`Server running on port ${PORT}`));
