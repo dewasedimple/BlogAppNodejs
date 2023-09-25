@@ -15,7 +15,7 @@ const PORT = process.env.PORT || 4000;
 
 app.use(cors());
 app.use(bodyparser.json());
-
+var userProfile;
 connectDB();
 
 // Passport configuration
@@ -168,7 +168,7 @@ app.get('/auth/google/callback',
   passport.authenticate('google', { failureRedirect: '/error' }),
   function(req, res) {
     // Successful authentication, redirect success.
-    res.redirect('/success');
+    res.send(userProfile);
   });
 
 // Ensure user is authenticated before allowing access to your protected routes
