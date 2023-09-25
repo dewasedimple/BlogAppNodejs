@@ -53,14 +53,14 @@ passport.use(
 );
 
 passport.serializeUser((user, done) => {
-  done(null, user.id);
+  done(null, user);
 });
 
-passport.deserializeUser((id, done) => {
-  User.findById(id, (err, user) => {
-    done(err, user);
+passport.deserializeUser((object, done) => {
+  
+    done(null, object);
   });
-});
+
 
 app.use(
   session({
@@ -181,14 +181,14 @@ app.post('/api/posts/:postId/comments', async (req, res) => {
 // Define the Google OAuth routes
 app.get(
   '/auth/google',
-  passport.authenticate('google', { scope: ['profile'] })
+  passport.authenticate('google', { scope: ['profile','email'] })
 );
 
 app.get(
   '/auth/google/callback',
   passport.authenticate('google', {
-    successRedirect: '/success', // Replace with your desired success route
-    failureRedirect: '/failure', // Replace with your desired failure route
+    successRedirect: '/mainpage', // Replace with your desired success route
+    failureRedirect: '/', // Replace with your desired failure route
   })
 );
 
