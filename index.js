@@ -24,33 +24,13 @@ passport.use(
     {
       clientID: '522578773347-0n9hj8qpv2qig1mf7r5bb3tn5gu6n8ao.apps.googleusercontent.com', // Replace with your actual Google Client ID
       clientSecret: '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', // Replace with your actual Google Client Secret
-      callbackURL: 'https://blog-frontend-b511.onrender.com/auth/google/callback', // Adjust the URL to match your setup
+      callbackURL: 'https://blog-application-lnfd.onrender.com/auth/google/callback', // Adjust the URL to match your setup
     },
-    async (accessToken, refreshToken, profile, done) => {
-      try {
-        // Check if a user with this Google ID already exists in your system
-        const user = await User.findOne({ googleId: profile.id });
-
-        if (user) {
-          return done(null, user); // User already exists, return the user
-        } else {
-          // User does not exist, create a new user
-          const newUser = new User({
-            googleId: profile.id,
-            displayName: profile.displayName,
-            // Add other user data fields as needed
-          });
-
-          await newUser.save();
-
-          return done(null, newUser); // Return the new user
-        }
-      } catch (error) {
-        return done(error, null);
-      }
-    }
-  )
-);
+    function(accessToken, refreshToken, profile, done) {
+      userProfile=profile;
+      return done(null, userProfile);
+  }
+));
 
 passport.serializeUser((user, done) => {
   done(null, user);
@@ -184,13 +164,12 @@ app.get(
   passport.authenticate('google', { scope: ['profile','email'] })
 );
 
-app.get(
-  '/auth/google/callback',
-  passport.authenticate('google', {
-    successRedirect: '/mainpage', // Replace with your desired success route
-    failureRedirect: '/', // Replace with your desired failure route
-  })
-);
+app.get('/auth/google/callback', 
+  passport.authenticate('google', { failureRedirect: '/error' }),
+  function(req, res) {
+    // Successful authentication, redirect success.
+    res.redirect('/success');
+  });
 
 // Ensure user is authenticated before allowing access to your protected routes
 const ensureAuthenticated = (req, res, next) => {
